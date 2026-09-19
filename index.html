@@ -17,10 +17,27 @@
 <p><a id="go" href="https://material-numerous-sure-indoor.trycloudflare.com">If nothing happens, click here.</a></p>
 <p class="muted">Bookmark this page, not the address it sends you to. The destination changes; this page does not.</p>
 <script>
+  // GitHub Pages lets browsers cache this page for 10 minutes, so the address baked into the
+  // link above can be stale right after a tunnel restart. target.txt is fetched fresh on every
+  // visit (cache-busting query) and wins; the baked-in address is only the fallback.
   // Anything after "#/" is forwarded, e.g. .../six-feelings/#/admin?key=... -> <tunnel>/admin?key=...
-  // The fragment never reaches GitHub's servers, so a key placed there is not logged by them.
-  var link = document.getElementById('go'), href = link.getAttribute('href');
-  if (location.hash.indexOf('#/') === 0) { href += location.hash.slice(1); link.setAttribute('href', href); }
-  if (href.indexOf('https://') === 0) location.replace(href);
+  // (the fragment never reaches GitHub's servers, so a key placed there is not logged by them).
+  var link = document.getElementById('go'), fallback = link.getAttribute('href');
+  var extra = location.hash.indexOf('#/') === 0 ? location.hash.slice(1) : '';
+  var done = false;
+  function go(base) {
+    if (done) return; done = true;
+    if (base.indexOf('https://') !== 0) return;          // still the unfilled template
+    link.setAttribute('href', base + extra);
+    location.replace(base + extra);
+  }
+  var timer = setTimeout(function () { go(fallback); }, 2500);
+  fetch('target.txt?t=' + Date.now(), { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+    .then(function (t) {
+      t = t.trim(); clearTimeout(timer);
+      go(/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(t) ? t : fallback);
+    })
+    .catch(function () { clearTimeout(timer); go(fallback); });
 </script>
 </html>
